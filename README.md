@@ -1,5 +1,5 @@
-# QGS Parse Layer Plugin
+# UDD Manager
 
-Parse QGIS 3 project and write a JSON config file with layer information.
+QGIS plugin for managing UDD project 
 
 More information coming soon...
