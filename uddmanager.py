@@ -28,6 +28,8 @@ from qgis.PyQt.QtWidgets import QAction
 from qgis.core import QgsProject, Qgis, QgsLayerTreeLayer, QgsLayerTreeGroup, QgsVectorLayer, QgsAttributeEditorElement, QgsExpressionContextUtils
 from qgis.gui import QgsGui
 import json
+import os
+import requests
 import unicodedata
 import webbrowser
 import pysftp
@@ -181,6 +183,121 @@ class UDDmanager:
             self.iface.removeToolBarIcon(action)
 
 
+    ####################################################
+    # IMPORT
+    ####################################################
+    def getUrlFromJson(self, jsonUrl: str, format: str):
+        apiData = json.loads(requests.get(jsonUrl).text)
+
+        for resource in apiData["result"]["resources"]:
+            if resource["format"] == format:
+                return {
+                    "name": resource["name"],
+                    "url": resource["url"]
+                }
+
+
+    def download(self, url: str, dest_folder: str, filename: str = ""):
+        if not os.path.exists(dest_folder):
+            os.makedirs(dest_folder)
+
+        if (filename == ""):
+            filename = url.split('/')[-1].replace(" ", "_")
+        file_path = os.path.join(dest_folder, filename)
+
+        r = requests.get(url, stream=True)
+        if r.ok:
+            self.dlg.logOutput.appendPlainText("  -> saving to", os.path.abspath(file_path))
+            with open(file_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=1024 * 8):
+                    if chunk:
+                        f.write(chunk)
+                        f.flush()
+                        os.fsync(f.fileno())
+        else:  # HTTP status code 4XX/5XX
+            self.dlg.logOutput.appendPlainText("Download failed: status code {}\n{}".format(r.status_code, r.text))
+
+
+    def getNode(self, node: object, selectedLayerNames = [], level: int = 0, parentNodeName: str = "root"):
+        levelStr = ""
+        for i in range(level):
+            levelStr += "  "
+
+        if (node["type"] == "group"):
+            self.dlg.logOutput.appendPlainText(levelStr + node["name"])
+
+            if (len(node["children"]) > 0):
+                for child in node["children"]:
+                    nextlevel = level + 1
+                    self.getNode(child, selectedLayerNames, nextlevel, node["name"])
+
+        elif (node["type"] == "layer"):
+            if self.dlg.radioImportAll.isChecked() or node["name"] in selectedLayerNames:
+                printStr = levelStr + "- " + node["name"]
+
+                if (node["package_name"] is not None and node["package_format"] is not None):
+                    printStr += ": DOWNLOAD '" + node["package_name"] + "' (" + node["package_format"] + ")"
+
+                    # load file from CKAN API
+                    resource = self.getUrlFromJson("https://opendata-ajuntament.barcelona.cat/data/api/3/action/package_show?id="+node["package_name"], node["package_format"])
+                    #self.dlg.logOutput.appendPlainText("get file " + resource["name"] + " from " + resource["url"])
+                    #self.download(resource["url"], parentNodeName, resource["name"])
+
+                self.dlg.logOutput.appendPlainText(printStr)
+
+
+    def getSelectedLayerNames(self):
+        # if self.dlg.radioImportAll.isChecked():
+            return []
+
+        layerNames=[]
+        for group in QgsProject.instance().layerTreeRoot().children():
+            if self.dlg.radioImportLayers.isChecked() or self.dlg.radioImportGroups.isChecked() and group["name"] == self.activeGroup().name():
+                layerNames += self.getLayerTreeName(group)
+
+        return layerNames
+
+
+    def getLayerTreeName(self, node):
+
+        if isinstance(node, QgsLayerTreeLayer):
+            if self.dlg.radioImportGroups.isChecked():
+                return [node.name()]
+            if self.dlg.radioImportLayers.isChecked():
+                for layer in self.iface.layerTreeView().selectedLayers():
+                    if layer.name() == node.name():
+                        return [node.name()]
+
+        elif isinstance(node, QgsLayerTreeGroup):
+            layerNames = []
+            for child in node.children():
+                if self.dlg.radioImportLayers.isChecked() or self.dlg.radioImportGroups.isChecked() and child["name"] == self.activeGroup().name():
+                    print(layerNames)
+                    layerNames += self.getLayerTreeName(child)
+                    print(layerNames)
+            return layerNames
+
+
+    def activeGroup(self):
+        tree_view = self.iface.layerTreeView()
+        
+        # retrieve current selected index in the layer tree
+        current_index = tree_view.selectionModel().currentIndex()
+        # check if index is valid (could be invalid e.g. if layer tree is empty)
+        if not current_index.isValid():
+            return
+        # convert the index to a node object
+        node = tree_view.index2node(current_index)
+        
+        # check if selected node is a group
+        if isinstance(node, QgsLayerTreeGroup):
+            return node
+
+
+
+    ####################################################
+    # EXPORT
+    ####################################################
     def show_online_file(self):
         host = self.dlg.inputHost.text()
         path = self.dlg.inputJSONpath.text()[len(self.JSONpathbase)-1:]
@@ -386,6 +503,9 @@ class UDDmanager:
         self.dlg.inputQGSpath.setText(self.QGSpathfile)
 
 
+    ####################################################
+    # GLOBAL
+    ####################################################
     def update_settings(self):
         QSettings().setValue('/UDDmanager/ActiveHost', self.dlg.inputHost.text())
         QSettings().setValue('/UDDmanager/ActiveUser', self.dlg.inputUser.text())
@@ -422,6 +542,9 @@ class UDDmanager:
                 self.dlg.inputUser.setText(QSettings().value('/UDDmanager/ActiveUser', ''))
                 self.dlg.inputPassword.setText(QSettings().value('/UDDmanager/ActivePassword', ''))
                 
+                self.dlg.buttonBox.accepted.disconnect()
+                self.dlg.buttonBox.accepted.connect(self.run)
+
                 self.dlg.radioLocal.toggled.connect(lambda:self.radioStateLocal(self.dlg.radioLocal))
                 self.dlg.radioUpload.toggled.connect(lambda:self.radioStateUpload(self.dlg.radioUpload))
                 self.dlg.buttonTest.clicked.connect(self.test_connection)
@@ -455,15 +578,36 @@ class UDDmanager:
             # See if OK was pressed
             if result:
 
+                # prepare file names
+                project_file = self.projectFilename.replace('.qgs', '')
+
+                # parse QGS file to JSON
+                info=[]
+                for group in QgsProject.instance().layerTreeRoot().children():
+                    obj = self.getLayerTree(group, project_file)
+                    info.append(obj)
+
+                # write JSON to temporary file
+                filenameJSON = self.projectFolder + os.path.sep + self.projectFilename + '.json'
+                file = open(filenameJSON, 'w')
+                file.write(json.dumps(info))
+                file.close()
+
                 # check which tab is selected
                 if self.dlg.tabWidget.currentIndex() == 0:
 
                     # IMPORT
 
-                    # check mode
-                    #self.dlg.radioImportAll.isChecked()
-                    #self.dlg.radioImportGroup.isChecked()
-                    #self.dlg.radioImportLayer.isChecked()
+                    self.dlg.logOutput.clear()
+
+                    f = open(filenameJSON)
+                    data = json.load(f)
+
+                    for node in data:
+                        self.getNode(node, self.getSelectedLayerNames())
+
+                    f.close()
+
 
                 elif self.dlg.tabWidget.currentIndex() == 1:
 
@@ -472,22 +616,6 @@ class UDDmanager:
                     # check mode
                     if ((self.dlg.radioUpload.isChecked() and self.inputsFtpOk()) 
                         or self.dlg.radioLocal.isChecked()):
-
-                        # prepare file names
-                        project_file = self.projectFilename.replace('.qgs', '')
-
-                        # parse QGS file to JSON
-                        info=[]
-                        for group in QgsProject.instance().layerTreeRoot().children():
-                            obj = self.getLayerTree(group, project_file)
-                            info.append(obj)
-
-                        # write JSON to temporary file and show in browser
-                        #filenameJSON = gettempdir() + os.path.sep + self.projectFilename + '.json'
-                        filenameJSON = self.projectFolder + os.path.sep + self.projectFilename + '.json'
-                        file = open(filenameJSON, 'w')
-                        file.write(json.dumps(info))
-                        file.close()
 
                         if (self.dlg.radioUpload.isChecked() and self.inputsFtpOk()):
                             # upload JSON file to server by FTP

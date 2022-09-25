@@ -41,7 +41,7 @@
      <property name="title">
       <string>Update Mode</string>
      </property>
-     <widget class="QRadioButton" name="radioImportLayer">
+     <widget class="QRadioButton" name="radioImportLayers">
       <property name="geometry">
        <rect>
         <x>10</x>
@@ -51,7 +51,7 @@
        </rect>
       </property>
       <property name="text">
-       <string>Selected Layer only</string>
+       <string>Selected Layers only</string>
       </property>
       <property name="checked">
        <bool>false</bool>
@@ -73,7 +73,7 @@
        <bool>true</bool>
       </property>
      </widget>
-     <widget class="QRadioButton" name="radioImportGroup">
+     <widget class="QRadioButton" name="radioImportGroups">
       <property name="geometry">
        <rect>
         <x>10</x>
@@ -83,7 +83,7 @@
        </rect>
       </property>
       <property name="text">
-       <string>Selected Group only</string>
+       <string>Selected Groups only</string>
       </property>
       <property name="checked">
        <bool>false</bool>
@@ -102,28 +102,15 @@
      <property name="title">
       <string>Log</string>
      </property>
-     <widget class="QScrollArea" name="scrollArea">
+     <widget class="QPlainTextEdit" name="logOutput">
       <property name="geometry">
        <rect>
-        <x>20</x>
-        <y>40</y>
-        <width>451</width>
-        <height>161</height>
+        <x>10</x>
+        <y>30</y>
+        <width>471</width>
+        <height>171</height>
        </rect>
       </property>
-      <property name="widgetResizable">
-       <bool>true</bool>
-      </property>
-      <widget class="QWidget" name="scrollAreaWidgetContents">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>449</width>
-         <height>159</height>
-        </rect>
-       </property>
-      </widget>
      </widget>
     </widget>
     <widget class="QGroupBox" name="groupOpenData">
