@@ -1,0 +1,64 @@
+<head>
+<style>
+body {
+    font:16px helvetica,arial,freesans,clean,sans-serif;
+    color:black;
+    line-height:1.4em;
+    background-color: #F8F8F8;
+    padding: 0.7em;
+}
+pre {
+    margin:1em 0;
+    font-size:16px;
+    background-color:#eee;
+    border:1px solid #ddd;
+    padding:2px;
+    color:#444;
+    overflow:auto;
+    -webkit-box-shadow:rgba(0,0,0,0.07) 0 1px 2px inset;
+    -webkit-border-radius:3px;
+    -moz-border-radius:3px;border-radius:3px;
+    display: inline;
+}
+pre code {
+    padding:0;
+    font-size:16px;
+    background-color:#eee;
+    border:none;
+}
+code {
+    font-size:16px;
+    background-color:#f8f8ff;
+    color:#444;
+    padding:0 .2em;
+    border:1px solid #dedede;
+}
+</style>
+</head>
+<body>
+
+<h1>UDDManager</h1>
+
+<p>QGIS plugin for managing all the web map viewer of BitHabitat UDD. It consists of two main parts:</p>
+<ul>
+<li>Update layers using Open Data BCN.</li>
+<li>Write layer information as JSON file used by web map viewer.</li>
+</ul>
+
+<h2>Update layers using Open Data BCN</h2>
+
+<p>This tool allows automatic update of all related data files used from <a href="https://opendata-ajuntament.barcelona.cat/">Open Data BCN</a> using their public API. You can limit the update to certain layers or groups or update everything at once. The log then shows the success of the updates listing all files updated on your computer.</p>
+
+<p>Maybe this function later can be substituted using <a href="https://github.com/BergWerkGIS/QGIS-CKAN-Browser">QGIS CKAN Browser plugin</a>.</p>
+
+<img src="update_opendata.png"/>
+
+<h2>Write layer information as JSON file</h2>
+
+<p>Bundeld with UDDManager comes <strong><em>LayerTree2JSON</em></strong>, which makes it easy to syncronize your QGIS 3 proyect with a web map viewer. It parses the Qgis project and writes a JSON config file with layer information. It also handles the upload using SFTP.<p>
+
+<p>For more information about installation and usage of this part, have a look at the documentation of QGIS plugin <a href="https://github.com/geraldo/layertree2json">LayerTree2JSON</a>.</p>
+
+<img src="use_plugin.png"/>
+
+</body>
