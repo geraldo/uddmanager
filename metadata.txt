@@ -6,12 +6,12 @@ version=0.1
 author=Gerald Kogler
 email=geraldo@servus.at
 
-about=This plugin manages all data for BitHabitat UDD. The plugin depends on LayerTree2JSON QGIS plugin, which itself depends on pyqgis python plugin, in order to publish the information to a webserver using a SFTP connection, so so for now you have to manually install pysftp: 1. Open console and go to qgis_installation_directory\apps\Python39\Scripts\ (or just OSGeo4W_installation_directoy on Windows) 2. Type: pip install pysftp 3. Install the plugin from QGIS. The development of this plugin was funded by Barcelona Institute of Technology for the Habitat (BitHabitat).
+about=This plugin manages all data for BitHabitat UDD. The plugin depends on LayerTree2JSON QGIS plugin, which itself depends on pyqgis python plugin, in order to publish the information to a webserver using a SFTP connection. So for now you have to manually install pysftp (see Help from LayerTree2JSON plugin). The development of this plugin was funded by Barcelona Institute of Technology for the Habitat (BitHabitat).
 
 tracker=https://github.com/geraldo/uddmanager/issues
 repository=https://github.com/geraldo/uddmanager
 
-plugin_dependencies=layertree2json
+plugin_dependencies=LayerTree2JSON
 
 # Recommended items:
 hasProcessingProvider=no
