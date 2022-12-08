@@ -215,17 +215,20 @@ class UDDmanager:
                 }
 
 
-    def download(self, url: str, dest_folder: str, filename: str = ""):
-        if not os.path.exists(dest_folder):
-            os.makedirs(dest_folder)
+    def download(self, url: str, layerId: id, dest_folder: str, filename: str = ""):
+        # dest_folder is not securly evaluated, see https://gis.stackexchange.com/questions/447073/getting-source-path-of-layer-file-in-pyqgis
+        #dest_folder = self.getDataProviderURL(layerId)
+
+        #if not os.path.exists(dest_folder):
+        #    os.makedirs(dest_folder)
 
         if (filename == ""):
             filename = url.split('/')[-1].replace(" ", "_")
-        file_path = os.path.join(dest_folder, filename)
+        file_path = os.path.join(self.projectFolder + dest_folder, filename)
 
         r = requests.get(url, stream=True)
         if r.ok:
-            self.dlg.logOutput.appendPlainText("  -> saving to", os.path.abspath(file_path))
+            #self.dlg.logOutput.appendPlainText("      -> saving to " + os.path.abspath(file_path))
             with open(file_path, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=1024 * 8):
                     if chunk:
@@ -234,6 +237,21 @@ class UDDmanager:
                         os.fsync(f.fileno())
         else:  # HTTP status code 4XX/5XX
             self.dlg.logOutput.appendPlainText("Download failed: status code {}\n{}".format(r.status_code, r.text))
+
+
+    def getDataProviderURL(self, layerId):
+        layer = QgsProject.instance().mapLayer(layerId)
+        print(layer.source())
+        return
+        
+        uri = layer.dataProvider().dataSourceUri().split("|layername=")
+        if len(uri) == 1:
+            uri = uri[0].split("?")
+
+        print(uri[0])
+        if os.path.isfile(uri[0]):
+            print(self.projectFolder)
+            return uri[0]
 
 
     def isSelectedLayer(self, nodeName):
@@ -250,34 +268,50 @@ class UDDmanager:
         return False
 
 
-    def getNode(self, node: object, level: int = 0, parentNodeName: str = "root"):
+    def isGroupInSelectedGroup(self, groupName):
+        if self.activeGroup().name()==groupName:
+            return True
+        for group in self.activeGroup().findGroups(True):
+            if (group.name() == groupName):
+                return True
+        return False
+
+
+    def updateNode(self, node: object, level: int = 0, parentNodeName: str = ""):
         levelStr = ""
+
         for i in range(level):
             levelStr += "  "
 
         if (node["type"] == "group"):
-            self.dlg.logOutput.appendPlainText(levelStr + node["name"])
+
+            if self.dlg.radioImportAll.isChecked() or (self.dlg.radioImportGroups.isChecked() and self.isGroupInSelectedGroup(node["name"])):
+                    self.dlg.logOutput.appendPlainText(levelStr + node["name"])
 
             if (len(node["children"]) > 0):
                 for child in node["children"]:
                     nextlevel = level + 1
-                    self.getNode(child, nextlevel, node["name"])
+                    self.updateNode(child, nextlevel, parentNodeName + "/" + node["name"])
 
         elif (node["type"] == "layer"):
 
             if self.dlg.radioImportAll.isChecked() or (self.dlg.radioImportGroups.isChecked() and self.isLayerInSelectedGroup(node["id"])) or (self.dlg.radioImportLayers.isChecked() and self.isSelectedLayer(node["name"])):
+
                 printStr = levelStr + "- " + node["name"]
 
-                if (node["package_name"] is not None and node["package_format"] is not None):
-                    printStr += ": DOWNLOAD '" + node["package_name"] + "' (" + node["package_format"] + ")"
+                if "package_name" in node and node["package_name"] is not None and "package_format" in node and node["package_format"] is not None:
+
+                    self.dlg.logOutput.appendPlainText(printStr + ": DOWNLOAD '" + node["package_name"] + "' (" + node["package_format"] + ")")
 
                     # load file from CKAN API
-                    #resource = self.getUrlFromJson("https://opendata-ajuntament.barcelona.cat/data/api/3/action/package_show?id="+node["package_name"], node["package_format"])
+                    resource = self.getUrlFromJson("https://opendata-ajuntament.barcelona.cat/data/api/3/action/package_show?id="+node["package_name"], node["package_format"])
                     #self.dlg.logOutput.appendPlainText("get file " + resource["name"] + " from " + resource["url"])
-                    #self.download(resource["url"], parentNodeName, resource["name"])
+                    self.download(resource["url"], node["id"], parentNodeName, resource["name"])
+
+                else:
+                    self.dlg.logOutput.appendPlainText(printStr + ": DOWNLOAD FAILED: 'package_name' or 'package_format' not defined")
 
                 self.dlg.logOutput.appendPlainText(printStr)
-                print(printStr)
 
 
     def activeGroup(self):
@@ -325,9 +359,12 @@ class UDDmanager:
             self.iface.messageBar().pushMessage("Warning", "In order to use UDDManager you have to install plugin LayerTree2JSON", level=Qgis.Critical, duration=3)
             return
 
+    def clearLog(self):
+        self.dlg.logOutput.clear()
+
+
     def run(self):
         """Run method that performs all the real work"""
-
         self.checkDependency()
 
         if (QgsProject.instance().fileName() == ""):
@@ -343,54 +380,60 @@ class UDDmanager:
                 self.dlg = UDDmanagerDialogUpdate()
 
                 self.dlg.buttonShowPackages.clicked.connect(self.show_packages)
+                self.dlg.buttonClearLog.clicked.connect(self.clearLog)
                 self.dlg.buttonBox.helpRequested.connect(self.help)
+                self.dlg.buttonBox.accepted.disconnect()
+                self.dlg.buttonBox.accepted.connect(self.runwithoutclose)
 
             # show the dialog
             self.dlg.show()
             # Run the dialog event loop
             result = self.dlg.exec_()
             # See if OK was pressed
-            if result:
+            #if result:
 
-                # IMPORT
 
-                self.dlg.logOutput.clear()
+    def runwithoutclose(self):
 
-                if self.dlg.radioImportGroups.isChecked() and self.activeGroup() == None:
-                    self.dlg.logOutput.appendPlainText("Please select a GROUP to proceed!")
+        # IMPORT
 
-                elif self.dlg.radioImportLayers.isChecked() and len(self.iface.layerTreeView().selectedLayers()) == 0:
-                    self.dlg.logOutput.appendPlainText("Please select a LAYER to proceed!")
+        if self.dlg.radioImportGroups.isChecked() and self.activeGroup() == None:
+            #self.dlg.logOutput.appendPlainText("Please select a GROUP to proceed!")
+            self.iface.messageBar().pushMessage("Warning", "Please select a GROUP to proceed!", level=Qgis.Warning, duration=3)
 
-                else:
-                    self.init_layertree2json()
+        elif self.dlg.radioImportLayers.isChecked() and len(self.iface.layerTreeView().selectedLayers()) == 0:
+            #self.dlg.logOutput.appendPlainText("Please select a LAYER to proceed!")
+            self.iface.messageBar().pushMessage("Warning", "Please select a LAYER to proceed!", level=Qgis.Warning, duration=3)
 
-                    # define global variables
-                    self.projectFilename = QgsExpressionContextUtils.projectScope(QgsProject.instance()).variable("project_filename")
-                    self.projectFolder = QgsExpressionContextUtils.projectScope(QgsProject.instance()).variable("project_folder")
-                    project_file = self.projectFilename.replace('.qgs', '')
+        else:
+            self.init_layertree2json()
 
-                    # parse QGS file to JSON
-                    info=[]
-                    for group in QgsProject.instance().layerTreeRoot().children():
-                        if not group.name().startswith("¡"):
-                            info.append(self.layertree2json.getLayerTree(group, project_file))
+            # define global variables
+            self.projectFilename = QgsExpressionContextUtils.projectScope(QgsProject.instance()).variable("project_filename")
+            self.projectFolder = QgsExpressionContextUtils.projectScope(QgsProject.instance()).variable("project_folder")
+            project_file = self.projectFilename.replace('.qgs', '')
 
-                    # write JSON to temporary file and show in browser
-                    filenameJSON = self.projectFolder + os.path.sep + self.projectFilename + '.json'
-                    file = open(filenameJSON, 'w')
-                    file.write(json.dumps(info))
-                    file.close()
+            # parse QGS file to JSON
+            info=[]
+            for group in QgsProject.instance().layerTreeRoot().children():
+                if not group.name().startswith("¡"):
+                    info.append(self.layertree2json.getLayerTree(group, project_file))
 
-                    f = open(filenameJSON)
-                    data = json.load(f)
+            # write JSON to temporary file and show in browser
+            filenameJSON = self.projectFolder + os.path.sep + self.projectFilename + '.json'
+            file = open(filenameJSON, 'w')
+            file.write(json.dumps(info))
+            file.close()
 
-                    for node in data:
-                        self.getNode(node)
+            self.dlg.logOutput.appendPlainText("------------------------")
 
-                    f.close()
+            f = open(filenameJSON)
+            data = json.load(f)
 
-                    # message to user
-                    self.iface.messageBar().pushMessage(
-                      "Success", "Update of Open Data layers successfull!",
-                      level=Qgis.Success, duration=3)
+            for node in data:
+                self.updateNode(node)
+
+            f.close()
+
+            # message to user
+            self.iface.messageBar().pushMessage("Success", "Update of Open Data layers successfull!", level=Qgis.Success, duration=3)
