@@ -25,7 +25,7 @@ from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QFileInfo
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
 
-from qgis.core import QgsProject, Qgis, QgsLayerTreeLayer, QgsLayerTreeGroup, QgsVectorLayer, QgsAttributeEditorElement, QgsExpressionContextUtils
+from qgis.core import QgsProject, Qgis, QgsLayerTreeLayer, QgsLayerTreeGroup, QgsVectorLayer, QgsAttributeEditorElement, QgsExpressionContextUtils, QgsProviderRegistry
 from qgis.gui import QgsGui
 import json
 import os
@@ -215,20 +215,12 @@ class UDDmanager:
                 }
 
 
-    def download(self, url: str, layerId: id, dest_folder: str, filename: str = ""):
-        # dest_folder is not securly evaluated, see https://gis.stackexchange.com/questions/447073/getting-source-path-of-layer-file-in-pyqgis
-        #dest_folder = self.getDataProviderURL(layerId)
-
-        #if not os.path.exists(dest_folder):
-        #    os.makedirs(dest_folder)
-
-        if (filename == ""):
-            filename = url.split('/')[-1].replace(" ", "_")
-        file_path = os.path.join(self.projectFolder + dest_folder, filename)
+    def download(self, url: str, layerId: id):
+        file_path = self.getDataProviderURL(layerId)
 
         r = requests.get(url, stream=True)
         if r.ok:
-            #self.dlg.logOutput.appendPlainText("      -> saving to " + os.path.abspath(file_path))
+            #self.dlg.logOutput.appendPlainText("      -> saving to " + file_path)
             with open(file_path, 'wb') as f:
                 for chunk in r.iter_content(chunk_size=1024 * 8):
                     if chunk:
@@ -240,18 +232,10 @@ class UDDmanager:
 
 
     def getDataProviderURL(self, layerId):
+        # https://gis.stackexchange.com/a/447119/60146
         layer = QgsProject.instance().mapLayer(layerId)
-        print(layer.source())
-        return
-        
-        uri = layer.dataProvider().dataSourceUri().split("|layername=")
-        if len(uri) == 1:
-            uri = uri[0].split("?")
-
-        print(uri[0])
-        if os.path.isfile(uri[0]):
-            print(self.projectFolder)
-            return uri[0]
+        uri_components = QgsProviderRegistry.instance().decodeUri(layer.dataProvider().name(), layer.publicSource());
+        return uri_components['path']
 
 
     def isSelectedLayer(self, nodeName):
@@ -297,21 +281,17 @@ class UDDmanager:
 
             if self.dlg.radioImportAll.isChecked() or (self.dlg.radioImportGroups.isChecked() and self.isLayerInSelectedGroup(node["id"])) or (self.dlg.radioImportLayers.isChecked() and self.isSelectedLayer(node["name"])):
 
-                printStr = levelStr + "- " + node["name"]
-
                 if "package_name" in node and node["package_name"] is not None and "package_format" in node and node["package_format"] is not None:
 
-                    self.dlg.logOutput.appendPlainText(printStr + ": DOWNLOAD '" + node["package_name"] + "' (" + node["package_format"] + ")")
+                    self.dlg.logOutput.appendPlainText(levelStr + "- " + node["name"] + ": DOWNLOAD '" + node["package_name"] + "' (" + node["package_format"] + ")")
 
                     # load file from CKAN API
                     resource = self.getUrlFromJson("https://opendata-ajuntament.barcelona.cat/data/api/3/action/package_show?id="+node["package_name"], node["package_format"])
                     #self.dlg.logOutput.appendPlainText("get file " + resource["name"] + " from " + resource["url"])
-                    self.download(resource["url"], node["id"], parentNodeName, resource["name"])
+                    self.download(resource["url"], node["id"])
 
                 else:
-                    self.dlg.logOutput.appendPlainText(printStr + ": DOWNLOAD FAILED: 'package_name' or 'package_format' not defined")
-
-                self.dlg.logOutput.appendPlainText(printStr)
+                    self.dlg.logOutput.appendPlainText(levelStr + "- " + node["name"] + ": DOWNLOAD FAILED: 'package_name' or 'package_format' not defined")
 
 
     def activeGroup(self):
