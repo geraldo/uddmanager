@@ -2,7 +2,7 @@
 name=UDD Manager
 qgisMinimumVersion=3.0
 description=BitHabitat UDD Manager for QGIS.
-version=0.1
+version=0.2
 author=Gerald Kogler
 email=geraldo@servus.at
 
@@ -24,4 +24,5 @@ deprecated=False
 server=False
 
 changelog=
+	0.2 - Add test mode (without updating files), avoid blocking of QGIS
 	0.1 - Initial publication at plugins.qgis.org
