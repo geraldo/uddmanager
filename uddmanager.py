@@ -23,7 +23,7 @@
 """
 from qgis.PyQt.QtCore import QSettings, QTranslator, QCoreApplication, QFileInfo, QUrl
 from qgis.PyQt.QtGui import QIcon
-from qgis.PyQt.QtWidgets import QAction
+from qgis.PyQt.QtWidgets import QAction, QApplication
 
 from qgis.core import QgsProject, Qgis, QgsLayerTreeLayer, QgsLayerTreeGroup, QgsVectorLayer, QgsAttributeEditorElement, QgsExpressionContextUtils
 from qgis.gui import QgsGui
@@ -208,6 +208,7 @@ class UDDmanager:
         apiData = json.loads(requests.get(jsonUrl).text)
 
         for resource in apiData["result"]["resources"]:
+            # probably also should check with resource["name"]
             if resource["format"] == format:
                 return {
                     "name": resource["name"],
@@ -310,6 +311,7 @@ class UDDmanager:
                     resource = self.getUrlFromJson("https://opendata-ajuntament.barcelona.cat/data/api/3/action/package_show?id="+node["package_name"], node["package_format"])
                     #self.dlg.logOutput.appendPlainText("get file " + resource["name"] + " from " + resource["url"])
                     self.download(resource["url"], node["id"], parentNodeName, resource["name"])
+                    QApplication.processEvents() 
 
                 else:
                     self.dlg.logOutput.appendPlainText(printStr + ": " + testMode + " FAILED: 'package_name' or 'package_format' not defined")
