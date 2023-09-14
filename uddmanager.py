@@ -32,7 +32,7 @@ import os
 import requests
 import unicodedata
 import webbrowser
-import pysftp
+import paramiko
 import urllib.parse
 
 # Initialize Qt resources from file resources.py
@@ -310,8 +310,12 @@ class UDDmanager:
                     # load file from CKAN API
                     resource = self.getUrlFromJson("https://opendata-ajuntament.barcelona.cat/data/api/3/action/package_show?id="+node["package_name"], node["package_format"])
                     #self.dlg.logOutput.appendPlainText("get file " + resource["name"] + " from " + resource["url"])
-                    self.download(resource["url"], node["id"], parentNodeName, resource["name"])
-                    QApplication.processEvents() 
+
+                    if resource != None:
+                        self.download(resource["url"], node["id"], parentNodeName, resource["name"])
+                        QApplication.processEvents()
+                    else:
+                        self.dlg.logOutput.appendPlainText(printStr + ": " + testMode + " FAILED: resource not defined for "+node["package_name"]+"/"+node["package_format"])
 
                 else:
                     self.dlg.logOutput.appendPlainText(printStr + ": " + testMode + " FAILED: 'package_name' or 'package_format' not defined")
@@ -422,7 +426,7 @@ class UDDmanager:
             info=[]
             for group in QgsProject.instance().layerTreeRoot().children():
                 if not group.name().startswith("¡"):
-                    info.append(self.layertree2json.getLayerTree(group, project_file))
+                    info.append(self.layertree2json.getLayerTree(group))
 
             # write JSON to temporary file and show in browser
             filenameJSON = self.projectFolder + os.path.sep + self.projectFilename + '.json'

@@ -2,11 +2,11 @@
 name=UDD Manager
 qgisMinimumVersion=3.0
 description=BitHabitat UDD Manager for QGIS.
-version=0.2
+version=0.3
 author=Gerald Kogler
 email=geraldo@servus.at
 
-about=This plugin manages all data for BitHabitat UDD. The plugin depends on LayerTree2JSON QGIS plugin, which itself depends on pyqgis python plugin, in order to publish the information to a webserver using a SFTP connection. So for now you have to manually install pysftp (see Help from LayerTree2JSON plugin). The development of this plugin was funded by Barcelona Institute of Technology for the Habitat (BitHabitat).
+about=This plugin manages all data for BitHabitat UDD. It depends on LayerTree2JSON QGIS plugin. The development of this plugin was funded by Barcelona Institute of Technology for the Habitat (BitHabitat).
 
 tracker=https://github.com/geraldo/uddmanager/issues
 repository=https://github.com/geraldo/uddmanager
@@ -24,5 +24,6 @@ deprecated=False
 server=False
 
 changelog=
+	0.3 - Remove dependency from pysftp using plain paramiko
 	0.2 - Add test mode (without updating files), avoid blocking of QGIS
 	0.1 - Initial publication at plugins.qgis.org
