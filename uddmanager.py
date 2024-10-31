@@ -35,15 +35,11 @@ import webbrowser
 import paramiko
 import urllib.parse
 
-# Initialize Qt resources from file resources.py
-from .resources import *
 # Import the code for the dialog
 from .uddmanager_dialog_update import UDDmanagerDialogUpdate
 import os.path
 from tempfile import gettempdir
 import layertree2json
-#from layertree2json import LayerTree2JSONDialog
-#from layertree2json import LayerTree2JSON
 from qgis.utils import plugins
 
 
